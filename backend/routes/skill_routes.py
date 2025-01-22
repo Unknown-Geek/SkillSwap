@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from models import User, Message, db
 from utils.db_config import users_collection, skills_collection
 
 skill_routes = Blueprint("skill_routes", __name__)
@@ -17,7 +18,14 @@ def add_user():
         if not all(field in data for field in required_fields):
             return jsonify({"error": "Missing required fields"}), 400
             
-        users_collection.insert_one(data)
+        user = User(
+            username=data['username'],
+            email=data['email'],
+            skills_offered=data['skills_offered'],
+            skills_needed=data['skills_needed']
+        )
+        db.session.add(user)
+        db.session.commit()
         return jsonify({"message": "User added successfully"}), 201
         
     except Exception as e:
@@ -25,8 +33,8 @@ def add_user():
 
 @skill_routes.route("/api/users", methods=["GET"])
 def get_users():
-    users = list(users_collection.find({}, {"_id": 0}))
-    return jsonify(users)
+    users = User.query.all()
+    return jsonify([user.to_dict() for user in users])
 
 @skill_routes.route("/api/skills", methods=["POST"])
 def add_skill():
@@ -38,3 +46,21 @@ def add_skill():
 def get_skills():
     skills = list(skills_collection.find({}, {"_id": 0}))
     return jsonify(skills)
+
+@skill_routes.route('/api/leaderboard', methods=['GET'])
+def get_leaderboard():
+    users = User.query.order_by(User.karma_points.desc()).limit(10).all()
+    return jsonify([user.to_dict() for user in users])
+
+@skill_routes.route('/api/chat', methods=['POST'])
+def send_message():
+    data = request.get_json()
+    message = Message(user_id=data['user_id'], message=data['message'])
+    db.session.add(message)
+    db.session.commit()
+    return jsonify(message.to_dict())
+
+@skill_routes.route('/api/chat', methods=['GET'])
+def get_messages():
+    messages = Message.query.order_by(Message.timestamp.asc()).all()
+    return jsonify([message.to_dict() for message in messages])
