@@ -110,71 +110,120 @@ def github_auth():
     GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize"
     params = {
         'client_id': os.getenv('GITHUB_CLIENT_ID'),
-        'redirect_uri': f"{os.getenv('FRONTEND_URL')}/auth/callback/github",
-        'scope': 'user:email',
+        'redirect_uri': f"{os.getenv('FRONTEND_URL')}/auth/callback/github",  # Updated redirect URI
+        'scope': 'user:email repo',
+        'state': os.urandom(16).hex()
     }
     auth_url = f"{GITHUB_AUTH_URL}?{'&'.join(f'{k}={v}' for k, v in params.items())}"
     return jsonify({'authUrl': auth_url})
 
-@auth_routes.route('/github/callback', methods=['POST'])
-@single_request
+@auth_routes.route('/github/callback', methods=['POST', 'OPTIONS'])
 def github_callback():
-    code = request.json.get('code')
-    if not code:
-        return jsonify({'error': 'No code provided'}), 400
-    
-    token_response = requests.post(
-        'https://github.com/login/oauth/access_token',
-        data={
-            'client_id': os.getenv('GITHUB_CLIENT_ID'),
-            'client_secret': os.getenv('GITHUB_CLIENT_SECRET'),
-            'code': code,
-            'redirect_uri': f"{os.getenv('FRONTEND_URL')}/auth/callback/github",
-        },
-        headers={'Accept': 'application/json'}
-    )
-    
-    if not token_response.ok:
-        return jsonify({'error': 'Failed to get token'}), 400
-
-    access_token = token_response.json().get('access_token')
-    
-    headers = {
-        'Authorization': f'token {access_token}',
-        'Accept': 'application/json'
-    }
-    
-    user_response = requests.get('https://api.github.com/user', headers=headers)
-    emails_response = requests.get('https://api.github.com/user/emails', headers=headers)
-    
-    if not user_response.ok or not emails_response.ok:
-        return jsonify({'error': 'Failed to get user info'}), 400
-
-    github_user = user_response.json()
-    github_emails = emails_response.json()
-    primary_email = next(email['email'] for email in github_emails if email['primary'])
-
-    user = users_collection.find_one({"email": primary_email})
-    if not user:
-        new_user = User(
-            username=github_user['login'],
-            email=primary_email,
-            auth_provider='github',
-            provider_id=str(github_user['id'])
-        )
-        result = users_collection.insert_one(new_user.to_dict())
-        user = users_collection.find_one({"_id": result.inserted_id})
-
+    if request.method == 'OPTIONS':
+        return '', 200
+        
     try:
+        code = request.json.get('code')
+        if not code:
+            return jsonify({'error': 'No code provided'}), 400
+
+        # Exchange code for token with proper headers
+        token_response = requests.post(
+            'https://github.com/login/oauth/access_token',
+            data={
+                'client_id': os.getenv('GITHUB_CLIENT_ID'),
+                'client_secret': os.getenv('GITHUB_CLIENT_SECRET'),
+                'code': code,
+                'redirect_uri': f"{os.getenv('FRONTEND_URL')}/auth/callback/github"
+            },
+            headers={
+                'Accept': 'application/json'
+            }
+        )
+
+        if not token_response.ok:
+            logger.error(f"GitHub token error response: {token_response.text}")
+            return jsonify({'error': 'Failed to get token'}), 400
+
+        token_data = token_response.json()
+        if 'error' in token_data:
+            logger.error(f"GitHub token error data: {token_data}")
+            return jsonify({'error': token_data.get('error_description', 'Token exchange failed')}), 400
+
+        access_token = token_data.get('access_token')
+        if not access_token:
+            return jsonify({'error': 'No access token in response'}), 400
+
+        # Update GitHub API request headers to use token correctly
+        headers = {
+            'Accept': 'application/json',
+            'Authorization': f'token {access_token}'  # Changed from 'Bearer' to 'token'
+        }
+        
+        # Make user request
+        user_response = requests.get('https://api.github.com/user', headers=headers)
+        if not user_response.ok:
+            logger.error(f"GitHub user API error: {user_response.text}")
+            return jsonify({'error': 'Failed to get user info'}), 400
+            
+        github_user = user_response.json()
+
+        # Make emails request
+        emails_response = requests.get('https://api.github.com/user/emails', headers=headers)
+        if not emails_response.ok:
+            logger.error(f"GitHub emails API error: {emails_response.text}")
+            return jsonify({'error': 'Failed to get user emails'}), 400
+
+        github_emails = emails_response.json()
+        
+        try:
+            primary_email = next(email['email'] for email in github_emails if email['primary'])
+        except StopIteration:
+            primary_email = github_emails[0]['email'] if github_emails else github_user.get('email')
+
+        if not primary_email:
+            return jsonify({'error': 'No email found'}), 400
+
+        # Find or create user
+        user = users_collection.find_one({"email": primary_email})
+        if not user:
+            new_user = {
+                "username": github_user['login'],
+                "email": primary_email,
+                "auth_provider": "github",
+                "provider_id": str(github_user['id']),
+                "github_connected": True,
+                "github_username": github_user['login'],
+                "github_access_token": access_token
+            }
+            result = users_collection.insert_one(new_user)
+            user = users_collection.find_one({"_id": result.inserted_id})
+        else:
+            # Update existing user with GitHub info
+            users_collection.update_one(
+                {"_id": user["_id"]},
+                {
+                    "$set": {
+                        "github_connected": True,
+                        "github_username": github_user['login'],
+                        "github_access_token": access_token
+                    }
+                }
+            )
+
+        # Create JWT token
         token = create_access_token(identity=str(user['_id']))
-        user_data = user.copy()  # Create a copy of the user dict
-        user_data['_id'] = str(user_data['_id'])  # Convert ObjectId to string
+        user_data = {k: v for k, v in user.items() if k != 'password'}
+        user_data['_id'] = str(user_data['_id'])
+
         return jsonify({
             'token': token,
             'user': user_data,
-            'message': 'Authentication successful'
+            'message': 'GitHub authentication successful'
         })
+
     except Exception as e:
+        logger.exception("GitHub callback error")
         return jsonify({'error': str(e)}), 400
 
 @auth_routes.route('/register', methods=['POST'])

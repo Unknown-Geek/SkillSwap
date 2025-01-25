@@ -2,6 +2,8 @@ from flask import Blueprint, jsonify, request
 from utils.db_config import users_collection
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from bson import ObjectId
+import requests # Add this import at the top
+import os  # Add this import at the top
 
 user_routes = Blueprint('users', __name__)
 
@@ -144,3 +146,88 @@ def update_karma(user_id):
         return jsonify({'error': 'User not found'}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@user_routes.route('/users/github/link', methods=['POST'])
+@jwt_required()
+def link_github():
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        code = data.get('code')
+        
+        if not code:
+            return jsonify({'error': 'No GitHub code provided'}), 400
+
+        # Exchange code for token
+        token_response = requests.post(
+            'https://github.com/login/oauth/access_token',
+            data={
+                'client_id': os.getenv('GITHUB_CLIENT_ID'),
+                'client_secret': os.getenv('GITHUB_CLIENT_SECRET'),
+                'code': code,
+                'redirect_uri': f"{os.getenv('FRONTEND_URL')}/auth/callback/github",
+            },
+            headers={'Accept': 'application/json'}
+        )
+
+        if not token_response.ok:
+            return jsonify({'error': 'Failed to get token'}), 400
+
+        token_data = token_response.json()
+        if 'error' in token_data:
+            return jsonify({'error': token_data.get('error_description', 'Token exchange failed')}), 400
+
+        access_token = token_data['access_token']
+            
+        # Get GitHub user info
+        headers = {'Authorization': f'Bearer {access_token}'}
+        github_response = requests.get('https://api.github.com/user', headers=headers)
+        
+        if not github_response.ok:
+            return jsonify({'error': 'Failed to get GitHub user info'}), 400
+            
+        github_user = github_response.json()
+        
+        # Update user in database
+        result = users_collection.update_one(
+            {'_id': ObjectId(current_user_id)},
+            {
+                '$set': {
+                    'github_connected': True,
+                    'github_username': github_user['login'],
+                    'github_access_token': access_token
+                }
+            }
+        )
+        
+        if result.modified_count:
+            updated_user = users_collection.find_one({'_id': ObjectId(current_user_id)}, {'password': 0})
+            updated_user['_id'] = str(updated_user['_id'])
+            return jsonify(updated_user)
+        
+        return jsonify({'error': 'Failed to update user'}), 400
+            
+    except Exception as e:
+        print(f"GitHub linking error: {str(e)}")
+        return jsonify({'error': str(e)}), 400
+
+@user_routes.route('/users/github/activity', methods=['GET'])
+@jwt_required()
+def get_github_activity():
+    try:
+        current_user_id = get_jwt_identity()
+        user = users_collection.find_one({'_id': ObjectId(current_user_id)})
+        
+        if not user.get('github_connected'):
+            return jsonify({'error': 'GitHub account not linked'}), 400
+            
+        headers = {'Authorization': f'token {user["github_token"]}'}
+        activity = requests.get(
+            f'https://api.github.com/users/{user["github_username"]}/events',
+            headers=headers
+        ).json()
+        
+        return jsonify(activity)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400

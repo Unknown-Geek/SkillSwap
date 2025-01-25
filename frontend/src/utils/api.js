@@ -19,14 +19,21 @@ export const authApi = {
   register: (userData) => api.post('/api/auth/register', userData),
   getGoogleAuthUrl: () => api.get('/api/auth/google'),
   getGithubAuthUrl: () => api.get('/api/auth/github'),
-  handleCallback: (provider, code) => api.post(`/api/auth/${provider}/callback`, { code })
+  handleCallback: (provider, code) => api.post(`/api/auth/${provider}/callback`, { code }),
+  handleGithubCallback: (code) => api.post('/api/auth/github/callback', { code }),
+  getGithubStatus: () => api.get('/api/users/github/status'),
 };
 
 export const userApi = {
   getProfile: () => api.get('/api/users/me'),
   updateProfile: (id, data) => api.put(`/api/users/${id}`, data),
   getAllUsers: () => api.get('/api/users'),
-  getLeaderboard: () => api.get('/api/leaderboard')
+  getLeaderboard: () => api.get('/api/leaderboard'),
+  linkGithub: (code) => api.post('/api/users/github/link', { code }),
+  unlinkGithub: () => api.post('/api/users/github/unlink'),
+  getGithubActivity: () => api.get('/api/users/github/activity'),
+  handleGithubCallback: (code) => api.post('/api/auth/github/callback', { code }),
+  getGithubAuthUrl: () => api.get('/api/auth/github'),
 };
 
 export default api;

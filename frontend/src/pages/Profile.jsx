@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import SkillInput from '../components/common/SkillInput';
+import GithubGraph from '../components/common/GithubGraph';
+import { toast } from 'react-hot-toast'; 
+import { FaGithub } from 'react-icons/fa';
+import { authApi, userApi } from '../utils/api';
 
 const Profile = () => {
   const [profile, setProfile] = useState(null);
@@ -74,6 +78,40 @@ const Profile = () => {
     } catch (err) {
       console.error('Error updating profile:', err);
       toast.error(err.response?.data?.error || 'Failed to update profile');
+    }
+  };
+
+  const handleGithubLink = async () => {
+    try {
+      const response = await authApi.getGithubAuthUrl();
+      const { authUrl } = response.data;
+
+      const width = 600;
+      const height = 800;
+      const left = window.innerWidth / 2 - width / 2;
+      const top = window.innerHeight / 2 - height / 2;
+
+      const popup = window.open(
+        authUrl,
+        'GitHub Login',
+        `width=${width},height=${height},left=${left},top=${top}`
+      );
+
+      window.addEventListener('message', async function handleMessage(event) {
+        if (event.data.type === 'github-linked') {
+          window.removeEventListener('message', handleMessage);
+          if (event.data.success) {
+            await fetchProfile(); // Refresh profile data
+            toast.success('GitHub account linked successfully!');
+          } else {
+            toast.error('Failed to link GitHub account');
+          }
+          popup.close();
+        }
+      });
+    } catch (err) {
+      console.error('GitHub auth error:', err);
+      toast.error('Failed to initialize GitHub connection');
     }
   };
 
@@ -233,6 +271,35 @@ const Profile = () => {
               </div>
             </div>
           )}
+
+          {/* GitHub Section */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">GitHub Integration</h2>
+              {profile.github_connected ? (
+                <span className="text-green-500 flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  Connected as {profile.github_username}
+                </span>
+              ) : (
+                <button
+                  onClick={handleGithubLink}
+                  className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.385-1.335-1.755-1.335-1.755-1.087-.744.084-.729.084-.729 1.205.085 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.605-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 21.795 24 17.295 24 12c0-6.63-5.37-12-12-12" />
+                  </svg>
+                  Connect GitHub
+                </button>
+              )}
+            </div>
+            
+            {profile.github_connected && (
+              <GithubGraph username={profile.github_username} />
+            )}
+          </div>
         </div>
       </div>
     </div>
