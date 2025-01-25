@@ -16,6 +16,47 @@ def get_users():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@user_routes.route('/users/me', methods=['GET', 'PUT'])
+@jwt_required()
+def manage_profile():
+    current_user_id = get_jwt_identity()
+    
+    if request.method == 'GET':
+        try:
+            user = users_collection.find_one({'_id': ObjectId(current_user_id)}, {'password': 0})
+            if user:
+                user['_id'] = str(user['_id'])
+                return jsonify(user)
+            return jsonify({'error': 'User not found'}), 404
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+            
+    elif request.method == 'PUT':
+        try:
+            update_data = request.json
+            
+            # Remove protected fields
+            protected_fields = ['_id', 'email', 'auth_provider', 'provider_id', 'karma_points', 'created_at']
+            for field in protected_fields:
+                update_data.pop(field, None)
+            
+            result = users_collection.update_one(
+                {'_id': ObjectId(current_user_id)},
+                {'$set': update_data}
+            )
+            
+            # Always fetch and return the latest user data
+            updated_user = users_collection.find_one({'_id': ObjectId(current_user_id)}, {'password': 0})
+            if updated_user:
+                updated_user['_id'] = str(updated_user['_id'])
+                return jsonify(updated_user), 200
+            
+            return jsonify({'error': 'User not found'}), 404
+            
+        except Exception as e:
+            print(f"Error updating user: {str(e)}")
+            return jsonify({'error': str(e)}), 400
+
 @user_routes.route('/users/<user_id>', methods=['GET'])
 def get_user(user_id):
     try:
@@ -100,19 +141,6 @@ def update_karma(user_id):
             updated_user = users_collection.find_one({'_id': ObjectId(user_id)}, {'password': 0})
             updated_user['_id'] = str(updated_user['_id'])
             return jsonify(updated_user)
-        return jsonify({'error': 'User not found'}), 404
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@user_routes.route('/users/me', methods=['GET'])
-@jwt_required()
-def get_current_user():
-    try:
-        current_user_id = get_jwt_identity()
-        user = users_collection.find_one({'_id': ObjectId(current_user_id)}, {'password': 0})
-        if user:
-            user['_id'] = str(user['_id'])
-            return jsonify(user)
         return jsonify({'error': 'User not found'}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500

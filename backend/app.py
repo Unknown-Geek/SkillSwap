@@ -28,10 +28,8 @@ CORS(app,
          r"/api/*": {
              "origins": ["http://localhost:5173"],
              "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-             "allow_headers": ["Content-Type", "Authorization", "Accept"],
-             "expose_headers": ["Content-Type", "Authorization"],
-             "supports_credentials": True,
-             "max_age": 120
+             "allow_headers": ["Content-Type", "Authorization"],
+             "supports_credentials": True
          }
      })
 
@@ -39,8 +37,8 @@ jwt = JWTManager(app)
 
 # Register blueprints
 app.register_blueprint(auth_routes, url_prefix='/api/auth')
-app.register_blueprint(skill_routes, url_prefix='/api/skills')
-app.register_blueprint(user_routes, url_prefix='/api')  # Add this line
+app.register_blueprint(skill_routes, url_prefix='/api')
+app.register_blueprint(user_routes, url_prefix='/api')
 
 if __name__ == "__main__":
     app.run(debug=True)
