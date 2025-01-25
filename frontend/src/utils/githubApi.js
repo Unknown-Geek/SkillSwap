@@ -32,6 +32,45 @@ export const fetchGitHubProfile = async (username) => {
             }
           }
         }
+        recentActivity: contributionsCollection {
+          commitContributionsByRepository(maxRepositories: 5) {
+            repository {
+              name
+              url
+            }
+            contributions(first: 5) {
+              totalCount
+              nodes {
+                occurredAt
+                commitCount
+              }
+            }
+          }
+          pullRequestContributions(first: 5) {
+            nodes {
+              pullRequest {
+                title
+                url
+                createdAt
+                repository {
+                  name
+                }
+              }
+            }
+          }
+          issueContributions(first: 5) {
+            nodes {
+              issue {
+                title
+                url
+                createdAt
+                repository {
+                  name
+                }
+              }
+            }
+          }
+        }
       }
     }
   `;

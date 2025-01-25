@@ -182,6 +182,82 @@ const GitHubContributionsGraph = ({ username }) => {
           {githubData.contributionsCollection.issueContributions.totalCount}
         </div>
       </div>
+
+      <div className="mt-8 border-t dark:border-gray-700 pt-4">
+        <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
+        <div className="space-y-4">
+          {/* Pull Requests */}
+          {githubData.recentActivity?.pullRequestContributions.nodes.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Recent Pull Requests</h4>
+              <div className="space-y-2">
+                {githubData.recentActivity.pullRequestContributions.nodes.map((contribution, idx) => (
+                  <a
+                    key={idx}
+                    href={contribution.pullRequest.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <div className="text-sm font-medium">{contribution.pullRequest.title}</div>
+                    <div className="text-xs text-gray-500">
+                      {contribution.pullRequest.repository.name} • 
+                      {new Date(contribution.pullRequest.createdAt).toLocaleDateString()}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Issues */}
+          {githubData.recentActivity?.issueContributions.nodes.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Recent Issues</h4>
+              <div className="space-y-2">
+                {githubData.recentActivity.issueContributions.nodes.map((contribution, idx) => (
+                  <a
+                    key={idx}
+                    href={contribution.issue.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <div className="text-sm font-medium">{contribution.issue.title}</div>
+                    <div className="text-xs text-gray-500">
+                      {contribution.issue.repository.name} • 
+                      {new Date(contribution.issue.createdAt).toLocaleDateString()}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recent Commits */}
+          {githubData.recentActivity?.commitContributionsByRepository.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Recent Commits</h4>
+              <div className="space-y-2">
+                {githubData.recentActivity.commitContributionsByRepository.map((repo, idx) => (
+                  <a
+                    key={idx}
+                    href={repo.repository.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <div className="text-sm font-medium">{repo.repository.name}</div>
+                    <div className="text-xs text-gray-500">
+                      {repo.contributions.totalCount} commits in the last week
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
