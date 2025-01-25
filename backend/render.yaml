@@ -3,7 +3,7 @@ services:
     name: skillswap-backend
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn wsgi:app
+    startCommand: gunicorn app:create_app()
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -13,3 +13,5 @@ services:
           property: connectionString
       - key: JWT_SECRET_KEY
         generateValue: true
+      - key: FRONTEND_URL
+        value: "https://skill-swap-frontend-iota.vercel.app"
