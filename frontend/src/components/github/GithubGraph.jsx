@@ -57,23 +57,35 @@ const GitHubContributionsGraph = ({ username }) => {
   const cellSpacing = 1;
   const totalCellWidth = cellSize + cellSpacing;
 
-  // Month label calculation
+  // Updated month label calculation
   const getMonthLabels = () => {
     const months = [];
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    let currentMonth = null;
+    let prevMonth = null;
     
+    // Add first month manually to ensure it's shown
+    if (weeks.length > 0 && weeks[0].contributionDays.length > 0) {
+      const firstDate = new Date(weeks[0].contributionDays[0].date);
+      const firstMonth = firstDate.getMonth();
+      months.push({
+        name: monthNames[firstMonth],
+        weekIndex: 0
+      });
+      prevMonth = firstMonth;
+    }
+
+    // Process remaining weeks
     weeks.forEach((week, weekIndex) => {
       if (week.contributionDays.length > 0) {
         const date = new Date(week.contributionDays[0].date);
         const month = date.getMonth();
         
-        if (currentMonth !== month) {
+        if (prevMonth !== month) {
           months.push({
             name: monthNames[month],
             weekIndex
           });
-          currentMonth = month;
+          prevMonth = month;
         }
       }
     });
@@ -88,7 +100,7 @@ const GitHubContributionsGraph = ({ username }) => {
   const monthLabels = getMonthLabels();
 
   return (
-    <div className="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg"> {/* Reduced overall padding */}
+    <div className="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg"> {/* Added mb-20 for extra bottom margin */}
       <div className="flex items-center justify-between mb-4 pl-2">
         <div className="flex items-center">
           <Calendar className="mr-2" />
@@ -99,21 +111,28 @@ const GitHubContributionsGraph = ({ username }) => {
         </div>
       </div>
 
-      <div className="flex flex-col mt-4"> {/* Reduced top margin */}
-        {/* Month labels */}
-        <div className="relative h-6 ml-4 mb-2"> {/* Reduced left margin */}
-          {monthLabels.map((month, index) => (
-            <div
-              key={index}
-              className="absolute text-xs text-gray-500"
-              style={{
-                left: `${month.weekIndex * totalCellWidth}px`,
-                top: 0
-              }}
-            >
-              {month.name}
-            </div>
-          ))}
+      <div className="flex flex-col mt-6 "> {/* Reduced top margin */}
+        {/* Updated month labels container */}
+        <div className="relative h-6 ml-11 mb-2 ">
+          <div className="absolute inset-0 flex">
+            {monthLabels.map((month, index) => (
+              <div
+                key={index}
+                className="text-xs text-gray-500"
+                style={{
+                  position: 'absolute',
+                  left: `${month.weekIndex * totalCellWidth}px`,
+                  top: 0,
+                  transform: month.weekIndex >= weeks.length - 4 ? 'translateX(-50%)' : 'none', // Adjust for overflow
+                  whiteSpace: 'nowrap',
+                  textAlign: 'center',
+                  width: `${totalCellWidth}px`, // Center alignment
+                }}
+              >
+                {month.name}
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="flex pl-1"> {/* Reduced left padding */}
@@ -183,79 +202,109 @@ const GitHubContributionsGraph = ({ username }) => {
         </div>
       </div>
 
+      {/* Updated Recent Activity Section */}
       <div className="mt-8 border-t dark:border-gray-700 pt-4">
-        <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
-        <div className="space-y-4">
-          {/* Pull Requests */}
-          {githubData.recentActivity?.pullRequestContributions.nodes.length > 0 && (
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Recent Pull Requests</h4>
-              <div className="space-y-2">
-                {githubData.recentActivity.pullRequestContributions.nodes.map((contribution, idx) => (
-                  <a
-                    key={idx}
-                    href={contribution.pullRequest.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                  >
-                    <div className="text-sm font-medium">{contribution.pullRequest.title}</div>
-                    <div className="text-xs text-gray-500">
-                      {contribution.pullRequest.repository.name} • 
-                      {new Date(contribution.pullRequest.createdAt).toLocaleDateString()}
-                    </div>
-                  </a>
-                ))}
+        <h3 className="text-lg font-semibold mb-4 flex items-center">
+          <span className="mr-2">Recent Activity</span>
+          <span className="px-2 py-1 text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100 rounded-full">
+            Last 30 days
+          </span>
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Pull Requests Column */}
+          <div className="space-y-3">
+            {githubData.recentActivity?.pullRequestContributions.nodes.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2M8 4v4m0-4h8m-8 0l4 4m-4-4v12" />
+                  </svg>
+                  Recent Pull Requests
+                </h4>
+                <div className="space-y-2">
+                  {githubData.recentActivity.pullRequestContributions.nodes.map((contribution, idx) => (
+                    <a
+                      key={idx}
+                      href={contribution.pullRequest.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-100 dark:border-gray-700"
+                    >
+                      <div className="text-sm font-medium line-clamp-1">{contribution.pullRequest.title}</div>
+                      <div className="text-xs text-gray-500 mt-1 flex items-center">
+                        <span className="flex-1">{contribution.pullRequest.repository.name}</span>
+                        <span className="text-gray-400">
+                          {new Date(contribution.pullRequest.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Issues */}
-          {githubData.recentActivity?.issueContributions.nodes.length > 0 && (
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Recent Issues</h4>
-              <div className="space-y-2">
-                {githubData.recentActivity.issueContributions.nodes.map((contribution, idx) => (
-                  <a
-                    key={idx}
-                    href={contribution.issue.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                  >
-                    <div className="text-sm font-medium">{contribution.issue.title}</div>
-                    <div className="text-xs text-gray-500">
-                      {contribution.issue.repository.name} • 
-                      {new Date(contribution.issue.createdAt).toLocaleDateString()}
-                    </div>
-                  </a>
-                ))}
+            {/* Recent Commits */}
+            {githubData.recentActivity?.commitContributionsByRepository.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Recent Commits
+                </h4>
+                <div className="space-y-2">
+                  {githubData.recentActivity.commitContributionsByRepository.map((repo, idx) => (
+                    <a
+                      key={idx}
+                      href={repo.repository.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-100 dark:border-gray-700"
+                    >
+                      <div className="text-sm font-medium">{repo.repository.name}</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {repo.contributions.totalCount} commits in the last week
+                      </div>
+                    </a>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* Recent Commits */}
-          {githubData.recentActivity?.commitContributionsByRepository.length > 0 && (
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Recent Commits</h4>
-              <div className="space-y-2">
-                {githubData.recentActivity.commitContributionsByRepository.map((repo, idx) => (
-                  <a
-                    key={idx}
-                    href={repo.repository.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                  >
-                    <div className="text-sm font-medium">{repo.repository.name}</div>
-                    <div className="text-xs text-gray-500">
-                      {repo.contributions.totalCount} commits in the last week
-                    </div>
-                  </a>
-                ))}
+          {/* Issues Column */}
+          <div className="space-y-3">
+            {githubData.recentActivity?.issueContributions.nodes.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Recent Issues
+                </h4>
+                <div className="space-y-2">
+                  {githubData.recentActivity.issueContributions.nodes.map((contribution, idx) => (
+                    <a
+                      key={idx}
+                      href={contribution.issue.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-100 dark:border-gray-700"
+                    >
+                      <div className="text-sm font-medium line-clamp-1">{contribution.issue.title}</div>
+                      <div className="text-xs text-gray-500 mt-1 flex items-center">
+                        <span className="flex-1">{contribution.issue.repository.name}</span>
+                        <span className="text-gray-400">
+                          {new Date(contribution.issue.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>

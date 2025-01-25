@@ -40,7 +40,7 @@ const GithubIntegration = ({ profile, onProfileUpdate }) => {
   }, [onProfileUpdate]);
 
   return (
-    <div className="w-full bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden p-6">
+    <div className="w-full bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden p-6 mb-24">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold">GitHub Integration</h2>
         {profile.github_connected ? (
