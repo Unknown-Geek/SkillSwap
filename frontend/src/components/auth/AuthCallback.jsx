@@ -1,75 +1,39 @@
+// src/components/auth/AuthCallback.jsx
 import { useEffect } from 'react';
-import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { authApi } from '../../utils/api';
 
 const AuthCallback = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { provider } = useParams();
+  const { login } = useAuth();
 
   useEffect(() => {
     const handleCallback = async () => {
-      const params = new URLSearchParams(location.search);
-      const code = params.get('code');
-      
-      if (!code) {
-        navigate('/login?error=missing_code');
-        return;
-      }
-
       try {
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/auth/${provider}/callback`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ code })
-          }
-        );
+        const code = new URLSearchParams(window.location.search).get('code');
+        const response = await authApi.handleCallback(provider, code);
         
-        if (!response.ok) {
-          throw new Error('Authentication failed');
-        }
-
-        const data = await response.json();
-        
-        if (data.token && data.user) {
-          localStorage.setItem('token', data.token);
-          localStorage.setItem('user', JSON.stringify(data.user));
-          
-          // Fetch user data after authentication
-          const userResponse = await fetch(
-            `${import.meta.env.VITE_API_URL}/api/users/me`,
-            {
-              headers: {
-                'Authorization': `Bearer ${data.token}`
-              }
-            }
-          );
-          
-          if (userResponse.ok) {
-            const userData = await userResponse.json();
-            localStorage.setItem('user', JSON.stringify(userData));
-          }
-          
+        if (response.data.token && response.data.user) {
+          login(response.data.token, response.data.user);
           navigate('/profile');
-        } else {
-          throw new Error('Invalid response from server');
         }
       } catch (error) {
-        console.error('Auth error:', error);
-        navigate('/login?error=' + encodeURIComponent(error.message));
+        console.error('Auth callback error:', error);
+        navigate('/login');
       }
     };
 
     handleCallback();
-  }, [navigate, location.search, provider]);
+  }, [provider, navigate, login]);
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen">
-      <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500" />
-      <p className="mt-4 text-gray-600">Completing authentication...</p>
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <h2 className="text-xl font-semibold">Processing authentication...</h2>
+        <div className="mt-4 animate-spin h-8 w-8 border-4 border-blue-500 rounded-full border-t-transparent mx-auto"></div>
+      </div>
     </div>
   );
 };

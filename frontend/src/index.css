@@ -13,3 +13,9 @@
     @apply backdrop-blur-md bg-white/70 dark:bg-gray-900/80;
   }
 }
+
+@layer components {
+  .nav-link {
+    @apply text-gray-600 dark:text-gray-300 hover:text-blue-500 transition-colors duration-200;
+  }
+}

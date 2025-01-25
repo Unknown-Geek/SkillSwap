@@ -49,43 +49,37 @@ def single_request(f):
     return decorated_function
 
 @auth_routes.route('/google/callback', methods=['POST', 'OPTIONS'])
-@single_request
 def google_callback():
     if request.method == 'OPTIONS':
         return '', 200
-
+        
     try:
         code = request.json.get('code')
         if not code:
             return jsonify({'error': 'No code provided'}), 400
 
-        logger.debug(f"Processing code: {code[:10]}...")
-        
-        token_url = "https://oauth2.googleapis.com/token"
-        token_data = {
-            'client_id': os.getenv('GOOGLE_CLIENT_ID'),
-            'client_secret': os.getenv('GOOGLE_CLIENT_SECRET'),
-            'code': code,
-            'redirect_uri': f"{os.getenv('FRONTEND_URL')}/auth/callback/google",
-            'grant_type': 'authorization_code'
-        }
-        
-        logger.debug(f"Token request data: {token_data}")
-        token_response = requests.post(token_url, data=token_data)
-        
-        if not token_response.ok:
-            logger.error(f"Token response error: {token_response.text}")
-            return jsonify({'error': token_response.text}), 400
+        # Exchange code for token
+        token_response = requests.post(
+            'https://oauth2.googleapis.com/token',
+            data={
+                'client_id': os.getenv('GOOGLE_CLIENT_ID'),
+                'client_secret': os.getenv('GOOGLE_CLIENT_SECRET'),
+                'code': code,
+                'redirect_uri': f"{os.getenv('FRONTEND_URL')}/auth/callback/google",
+                'grant_type': 'authorization_code'
+            }
+        )
 
+        if not token_response.ok:
+            return jsonify({'error': 'Failed to get token'}), 400
+            
         access_token = token_response.json().get('access_token')
-        userinfo_response = requests.get(
+        userinfo = requests.get(
             'https://www.googleapis.com/oauth2/v2/userinfo',
             headers={'Authorization': f'Bearer {access_token}'}
-        )
-        userinfo_response.raise_for_status()
+        ).json()
 
-        userinfo = userinfo_response.json()
-        
+        # Find or create user
         user = users_collection.find_one({"email": userinfo['email']})
         if not user:
             new_user = User(
@@ -96,23 +90,20 @@ def google_callback():
             )
             result = users_collection.insert_one(new_user.to_dict())
             user = users_collection.find_one({"_id": result.inserted_id})
-
+            
+        # Create JWT token
         token = create_access_token(identity=str(user['_id']))
         user_data = user.copy()
         user_data['_id'] = str(user_data['_id'])
         
         return jsonify({
             'token': token,
-            'user': user_data,
-            'message': 'Authentication successful'
+            'user': user_data
         })
-        
-    except requests.exceptions.RequestException as e:
-        logger.error(f"OAuth error: {str(e)}")  # Debug logging
-        return jsonify({'error': 'Failed to authenticate with Google'}), 400
+
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")  # Debug logging
-        return jsonify({'error': 'Authentication failed'}), 400
+        logger.error(f"Google callback error: {str(e)}")
+        return jsonify({'error': str(e)}), 400
 
 @auth_routes.route('/github')
 def github_auth():
