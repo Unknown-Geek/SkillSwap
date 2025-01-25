@@ -1,40 +1,20 @@
 from functools import wraps
 from flask import request, jsonify, current_app
-import jwt
-from datetime import datetime, timezone
+from flask_jwt_extended import verify_jwt_in_request, get_jwt
+import logging
 
-def require_auth(f):
+logger = logging.getLogger(__name__)
+
+def auth_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        auth_header = request.headers.get('Authorization')
-        
-        if not auth_header:
-            return jsonify({'error': 'No authorization header'}), 401
-        
         try:
-            # Remove 'Bearer ' from token
-            token = auth_header.split(' ')[1]
-            
-            # Verify token
-            payload = jwt.decode(
-                token, 
-                current_app.config['JWT_SECRET_KEY'],
-                algorithms=['HS256']
-            )
-            
-            # Check if token is expired
-            exp = datetime.fromtimestamp(payload['exp'], tz=timezone.utc)
-            if exp < datetime.now(timezone.utc):
-                return jsonify({'error': 'Token has expired'}), 401
-                
-            # Add user_id to request object
-            request.user_id = payload['sub']
-            
+            verify_jwt_in_request()
             return f(*args, **kwargs)
-            
-        except jwt.ExpiredSignatureError:
-            return jsonify({'error': 'Token has expired'}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({'error': 'Invalid token'}), 401
-            
+        except Exception as e:
+            logger.error(f"Authentication error: {str(e)}")
+            return jsonify({
+                'error': 'Authentication failed',
+                'message': str(e)
+            }), 401
     return decorated

@@ -31,7 +31,11 @@ export const userApi = {
   getLeaderboard: () => api.get('/api/leaderboard'),
   linkGithub: (code) => api.post('/api/users/github/link', { code }),
   unlinkGithub: () => api.post('/api/users/github/unlink'),
-  getGithubActivity: () => api.get('/api/users/github/activity'),
+  getGithubActivity: () => api.get('/api/users/github/activity', {
+    headers: {
+      'Accept': 'application/json'
+    }
+  }),
   handleGithubCallback: (code) => api.post('/api/auth/github/callback', { code }),
   getGithubAuthUrl: () => api.get('/api/auth/github'),
 };

@@ -6,6 +6,7 @@ from utils.db_config import users_collection
 import os
 import logging
 from functools import wraps
+from datetime import timedelta
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -47,6 +48,12 @@ def single_request(f):
         finally:
             processed_codes.discard(code)
     return decorated_function
+
+def create_user_token(user_id):
+    return create_access_token(
+        identity=str(user_id),
+        expires_delta=timedelta(days=1)  # Set token expiration to 1 day
+    )
 
 @auth_routes.route('/google/callback', methods=['POST', 'OPTIONS'])
 def google_callback():
@@ -92,7 +99,7 @@ def google_callback():
             user = users_collection.find_one({"_id": result.inserted_id})
             
         # Create JWT token
-        token = create_access_token(identity=str(user['_id']))
+        token = create_user_token(user['_id'])
         user_data = user.copy()
         user_data['_id'] = str(user_data['_id'])
         
@@ -212,7 +219,7 @@ def github_callback():
             )
 
         # Create JWT token
-        token = create_access_token(identity=str(user['_id']))
+        token = create_user_token(user['_id'])
         user_data = {k: v for k, v in user.items() if k != 'password'}
         user_data['_id'] = str(user_data['_id'])
 
@@ -251,7 +258,7 @@ def register():
     result = users_collection.insert_one(new_user.to_dict())
     user = users_collection.find_one({"_id": result.inserted_id})
 
-    token = create_access_token(identity=str(user['_id']))
+    token = create_user_token(user['_id'])
     user_data = user.copy()
     user_data['_id'] = str(user_data['_id'])
 
@@ -260,3 +267,47 @@ def register():
         'user': user_data,
         'message': 'Registration successful'
     })
+
+@auth_routes.route('/login', methods=['POST'])
+def login():
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
+
+        if not email or not password:
+            return jsonify({'error': 'Missing email or password'}), 400
+
+        user = users_collection.find_one({'email': email})
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Create User instance to use password check method
+        user_obj = User(
+            username=user['username'],
+            email=user['email'],
+            auth_provider=user.get('auth_provider', 'local')
+        )
+        user_obj.password = user.get('password')
+
+        if not user_obj.check_password(password):
+            return jsonify({'error': 'Invalid password'}), 401
+
+        # Create token
+        token = create_access_token(
+            identity=str(user['_id']),
+            expires_delta=timedelta(days=1)
+        )
+
+        user_data = {k: v for k, v in user.items() if k != 'password'}
+        user_data['_id'] = str(user_data['_id'])
+
+        return jsonify({
+            'token': token,
+            'user': user_data,
+            'message': 'Login successful'
+        })
+
+    except Exception as e:
+        logger.error(f"Login error: {str(e)}")
+        return jsonify({'error': str(e)}), 400

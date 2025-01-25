@@ -4,6 +4,12 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from bson import ObjectId
 import requests # Add this import at the top
 import os  # Add this import at the top
+import logging
+from utils.auth import auth_required
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 user_routes = Blueprint('users', __name__)
 
@@ -19,45 +25,58 @@ def get_users():
         return jsonify({'error': str(e)}), 500
 
 @user_routes.route('/users/me', methods=['GET', 'PUT'])
-@jwt_required()
+@auth_required
 def manage_profile():
-    current_user_id = get_jwt_identity()
-    
-    if request.method == 'GET':
-        try:
-            user = users_collection.find_one({'_id': ObjectId(current_user_id)}, {'password': 0})
-            if user:
+    try:
+        current_user_id = get_jwt_identity()
+        logger.debug(f"Accessing profile for user: {current_user_id}")
+        
+        if not current_user_id:
+            logger.error("No user ID in JWT token")
+            return jsonify({'error': 'User not authenticated'}), 401
+
+        if request.method == 'GET':
+            try:
+                user = users_collection.find_one({'_id': ObjectId(current_user_id)}, {'password': 0})
+                if not user:
+                    logger.error(f"User not found: {current_user_id}")
+                    return jsonify({'error': 'User not found'}), 404
+                    
                 user['_id'] = str(user['_id'])
                 return jsonify(user)
-            return jsonify({'error': 'User not found'}), 404
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-            
-    elif request.method == 'PUT':
-        try:
-            update_data = request.json
-            
-            # Remove protected fields
-            protected_fields = ['_id', 'email', 'auth_provider', 'provider_id', 'karma_points', 'created_at']
-            for field in protected_fields:
-                update_data.pop(field, None)
-            
-            result = users_collection.update_one(
-                {'_id': ObjectId(current_user_id)},
-                {'$set': update_data}
-            )
-            
-            # Always fetch and return the latest user data
-            updated_user = users_collection.find_one({'_id': ObjectId(current_user_id)}, {'password': 0})
-            if updated_user:
-                updated_user['_id'] = str(updated_user['_id'])
-                return jsonify(updated_user), 200
-            
-            return jsonify({'error': 'User not found'}), 404
-            
-        except Exception as e:
-            print(f"Error updating user: {str(e)}")
-            return jsonify({'error': str(e)}), 400
+            except Exception as e:
+                logger.error(f"Error fetching user: {str(e)}")
+                return jsonify({'error': 'Internal server error'}), 500
+
+        elif request.method == 'PUT':
+            try:
+                update_data = request.json
+                
+                # Remove protected fields
+                protected_fields = ['_id', 'email', 'auth_provider', 'provider_id', 'karma_points', 'created_at']
+                for field in protected_fields:
+                    update_data.pop(field, None)
+                
+                result = users_collection.update_one(
+                    {'_id': ObjectId(current_user_id)},
+                    {'$set': update_data}
+                )
+                
+                # Always fetch and return the latest user data
+                updated_user = users_collection.find_one({'_id': ObjectId(current_user_id)}, {'password': 0})
+                if updated_user:
+                    updated_user['_id'] = str(updated_user['_id'])
+                    return jsonify(updated_user), 200
+                
+                return jsonify({'error': 'User not found'}), 404
+                
+            except Exception as e:
+                print(f"Error updating user: {str(e)}")
+                return jsonify({'error': str(e)}), 400
+
+    except Exception as e:
+        logger.error(f"Profile management error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @user_routes.route('/users/<user_id>', methods=['GET'])
 def get_user(user_id):
@@ -71,7 +90,7 @@ def get_user(user_id):
         return jsonify({'error': str(e)}), 500
 
 @user_routes.route('/users/<user_id>', methods=['PUT'])
-@jwt_required()
+@auth_required
 def update_user(user_id):
     try:
         current_user_id = get_jwt_identity()
@@ -218,16 +237,34 @@ def get_github_activity():
         current_user_id = get_jwt_identity()
         user = users_collection.find_one({'_id': ObjectId(current_user_id)})
         
-        if not user.get('github_connected'):
+        if not user or not user.get('github_connected'):
             return jsonify({'error': 'GitHub account not linked'}), 400
             
-        headers = {'Authorization': f'token {user["github_token"]}'}
-        activity = requests.get(
-            f'https://api.github.com/users/{user["github_username"]}/events',
-            headers=headers
-        ).json()
+        if not user.get('github_access_token'):
+            return jsonify({'error': 'GitHub token not found'}), 400
+
+        headers = {
+            'Authorization': f'token {user["github_access_token"]}',
+            'Accept': 'application/vnd.github.v3+json'
+        }
+        
+        username = user.get('github_username')
+        activity_url = f'https://api.github.com/users/{username}/events/public'
+        
+        response = requests.get(activity_url, headers=headers)
+        
+        if response.status_code == 401:
+            # Token expired or invalid
+            return jsonify({'error': 'GitHub token expired'}), 401
+            
+        response.raise_for_status()
+        activity = response.json()
         
         return jsonify(activity)
         
+    except requests.exceptions.RequestException as e:
+        logger.error(f"GitHub API error: {str(e)}")
+        return jsonify({'error': 'Failed to fetch GitHub activity'}), 500
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        logger.error(f"Error getting GitHub activity: {str(e)}")
+        return jsonify({'error': str(e)}), 500
