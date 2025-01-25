@@ -1,29 +1,47 @@
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 import certifi
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Initialize collections as None
+db = None
+users_collection = None
+skills_collection = None
+messages_collection = None
 
 try:
-    connection_string = "mongodb+srv://mojomaniac2005:LhGWYN1H7CuqZNU5@cluster0.vmqxhal.mongodb.net/skill_swap?retryWrites=true&w=majority&ssl=true"
-    
+    # Get MongoDB URI from environment variable
+    connection_string = os.getenv('MONGODB_URI')
+    if not connection_string:
+        raise ValueError("MONGODB_URI not found in environment variables")
+
+    # Initialize MongoDB client
     client = MongoClient(
         connection_string,
         serverSelectionTimeoutMS=5000,
         tlsCAFile=certifi.where()
     )
     
-    # Test the connection with a shorter timeout
+    # Test connection
     client.admin.command('ping')
     
+    # Initialize database and collections
     db = client.skill_swap
     users_collection = db.users
     skills_collection = db.skills
-    messages_collection = db.messages  # Add this line
+    messages_collection = db.messages
     
-    print("Successfully connected to MongoDB!")
-    
-except (ConnectionFailure, ServerSelectionTimeoutError) as e:
-    print(f"Could not connect to MongoDB: {e}")
+    print("Successfully connected to MongoDB Atlas!")
+
+except Exception as e:
+    print(f"Error connecting to MongoDB: {str(e)}")
     raise
 
 def get_db():
+    if not db:
+        raise ConnectionError("Database not initialized")
     return db
