@@ -14,39 +14,8 @@ export const fetchGitHubProfile = async (username) => {
               }
             }
           }
-          pullRequestContributions {
+          pullRequestContributions(first: 100) {
             totalCount
-          }
-          issueContributions {
-            totalCount
-          }
-        }
-        repositories(first: 100, orderBy: {field: UPDATED_AT, direction: DESC}) {
-          totalCount
-          nodes {
-            name
-            description
-            stargazerCount
-            primaryLanguage {
-              name
-            }
-          }
-        }
-        recentActivity: contributionsCollection {
-          commitContributionsByRepository(maxRepositories: 5) {
-            repository {
-              name
-              url
-            }
-            contributions(first: 5) {
-              totalCount
-              nodes {
-                occurredAt
-                commitCount
-              }
-            }
-          }
-          pullRequestContributions(first: 5) {
             nodes {
               pullRequest {
                 title
@@ -58,7 +27,8 @@ export const fetchGitHubProfile = async (username) => {
               }
             }
           }
-          issueContributions(first: 5) {
+          issueContributions(first: 100) {
+            totalCount
             nodes {
               issue {
                 title
@@ -68,6 +38,30 @@ export const fetchGitHubProfile = async (username) => {
                   name
                 }
               }
+            }
+          }
+          commitContributionsByRepository {
+            repository {
+              name
+              url
+            }
+            contributions(first: 10) {
+              totalCount
+              nodes {
+                occurredAt
+                commitCount
+              }
+            }
+          }
+        }
+        repositories(first: 100, orderBy: {field: UPDATED_AT, direction: DESC}) {
+          totalCount
+          nodes {
+            name
+            description
+            stargazerCount
+            primaryLanguage {
+              name
             }
           }
         }
@@ -86,13 +80,28 @@ export const fetchGitHubProfile = async (username) => {
     });
 
     if (!response.ok) {
-      throw new Error('GitHub API request failed');
+      throw new Error(`GitHub API request failed: ${response.status}`);
     }
 
     const data = await response.json();
+    
+    // Check for GraphQL errors
+    if (data.errors) {
+      console.error('GraphQL Errors:', data.errors);
+      throw new Error(data.errors[0].message);
+    }
+
+    // Validate response data structure
+    if (!data?.data?.user) {
+      console.error('Invalid response structure:', data);
+      throw new Error('Invalid response from GitHub API');
+    }
+
     return data.data.user;
   } catch (error) {
     console.error('Error fetching GitHub data:', error);
-    throw error;
+    console.error('Username:', username);
+    console.error('Token exists:', !!import.meta.env.VITE_GITHUB_TOKEN);
+    throw new Error(`Failed to fetch GitHub data: ${error.message}`);
   }
 };

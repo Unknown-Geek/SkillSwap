@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar } from 'lucide-react';
 import { Tooltip } from 'react-tooltip';
+import { FaGithub, FaExternalLinkAlt } from 'react-icons/fa';
 import { fetchGitHubProfile } from '../../utils/githubApi';
 
 const GitHubContributionsGraph = ({ username }) => {
@@ -39,8 +40,16 @@ const GitHubContributionsGraph = ({ username }) => {
 
   if (error) {
     return (
-      <div className="p-4 bg-red-50 dark:bg-red-900 rounded-lg text-red-600 dark:text-red-200">
-        Error loading GitHub contributions: {error}
+      <div className="p-4 bg-red-50 dark:bg-red-900 rounded-lg">
+        <div className="text-red-600 dark:text-red-200 font-medium mb-2">
+          Failed to load GitHub contributions
+        </div>
+        <div className="text-sm text-red-500 dark:text-red-300">
+          {error}
+        </div>
+        <div className="mt-2 text-sm text-red-400 dark:text-red-400">
+          Please check your GitHub token and username configuration
+        </div>
       </div>
     );
   }
@@ -106,8 +115,20 @@ const GitHubContributionsGraph = ({ username }) => {
           <Calendar className="mr-2" />
           <h2 className="text-lg font-semibold">GitHub Activity</h2>
         </div>
-        <div className="text-sm text-gray-600 dark:text-gray-300">
-          Total Contributions: {contributions.totalContributions}
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-gray-600 dark:text-gray-300">
+            Total Contributions: {contributions.totalContributions}
+          </div>
+          <a
+            href={`https://github.com/${username}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            <FaGithub className="w-4 h-4" />
+            Visit Profile
+            <FaExternalLinkAlt className="w-3 h-3" />
+          </a>
         </div>
       </div>
 
@@ -211,100 +232,109 @@ const GitHubContributionsGraph = ({ username }) => {
           </span>
         </h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Pull Requests Column */}
-          <div className="space-y-3">
-            {githubData.recentActivity?.pullRequestContributions.nodes.length > 0 && (
-              <div>
-                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 flex items-center">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2M8 4v4m0-4h8m-8 0l4 4m-4-4v12" />
-                  </svg>
-                  Recent Pull Requests
-                </h4>
-                <div className="space-y-2">
-                  {githubData.recentActivity.pullRequestContributions.nodes.map((contribution, idx) => (
-                    <a
-                      key={idx}
-                      href={contribution.pullRequest.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-100 dark:border-gray-700"
-                    >
-                      <div className="text-sm font-medium line-clamp-1">{contribution.pullRequest.title}</div>
-                      <div className="text-xs text-gray-500 mt-1 flex items-center">
-                        <span className="flex-1">{contribution.pullRequest.repository.name}</span>
-                        <span className="text-gray-400">
-                          {new Date(contribution.pullRequest.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </a>
-                  ))}
+        <div className="space-y-6">
+          {/* Pull Requests and Issues in 2 columns */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Pull Requests Column */}
+            <div>
+              {githubData.recentActivity?.pullRequestContributions.nodes.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 flex items-center">
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2M8 4v4m0-4h8m-8 0l4 4m-4-4v12" />
+                    </svg>
+                    Recent Pull Requests
+                  </h4>
+                  <div className="space-y-2">
+                    {githubData.recentActivity.pullRequestContributions.nodes.map((contribution, idx) => (
+                      <a
+                        key={idx}
+                        href={contribution.pullRequest.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-100 dark:border-gray-700"
+                      >
+                        <div className="text-sm font-medium line-clamp-1">{contribution.pullRequest.title}</div>
+                        <div className="text-xs text-gray-500 mt-1 flex items-center">
+                          <span className="flex-1">{contribution.pullRequest.repository.name}</span>
+                          <span className="text-gray-400">
+                            {new Date(contribution.pullRequest.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* Recent Commits */}
-            {githubData.recentActivity?.commitContributionsByRepository.length > 0 && (
-              <div className="mt-4">
-                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 flex items-center">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                  </svg>
-                  Recent Commits
-                </h4>
-                <div className="space-y-2">
-                  {githubData.recentActivity.commitContributionsByRepository.map((repo, idx) => (
-                    <a
-                      key={idx}
-                      href={repo.repository.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-100 dark:border-gray-700"
-                    >
-                      <div className="text-sm font-medium">{repo.repository.name}</div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {repo.contributions.totalCount} commits in the last week
-                      </div>
-                    </a>
-                  ))}
+            {/* Issues Column */}
+            <div>
+              {githubData.recentActivity?.issueContributions.nodes.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 flex items-center">
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Recent Issues
+                  </h4>
+                  <div className="space-y-2">
+                    {githubData.recentActivity.issueContributions.nodes.map((contribution, idx) => (
+                      <a
+                        key={idx}
+                        href={contribution.issue.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-100 dark:border-gray-700"
+                      >
+                        <div className="text-sm font-medium line-clamp-1">{contribution.issue.title}</div>
+                        <div className="text-xs text-gray-500 mt-1 flex items-center">
+                          <span className="flex-1">{contribution.issue.repository.name}</span>
+                          <span className="text-gray-400">
+                            {new Date(contribution.issue.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
-          {/* Issues Column */}
-          <div className="space-y-3">
-            {githubData.recentActivity?.issueContributions.nodes.length > 0 && (
-              <div>
-                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 flex items-center">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Recent Issues
-                </h4>
-                <div className="space-y-2">
-                  {githubData.recentActivity.issueContributions.nodes.map((contribution, idx) => (
-                    <a
-                      key={idx}
-                      href={contribution.issue.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-100 dark:border-gray-700"
-                    >
-                      <div className="text-sm font-medium line-clamp-1">{contribution.issue.title}</div>
-                      <div className="text-xs text-gray-500 mt-1 flex items-center">
-                        <span className="flex-1">{contribution.issue.repository.name}</span>
-                        <span className="text-gray-400">
-                          {new Date(contribution.issue.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </a>
-                  ))}
-                </div>
+          {/* Recent Commits - Full Width */}
+          {githubData.contributionsCollection.commitContributionsByRepository.length > 0 && (
+            <div className="w-full">
+              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 flex items-center">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Recent Commits
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {githubData.contributionsCollection.commitContributionsByRepository.map((repo, idx) => (
+                  <a
+                    key={idx}
+                    href={repo.repository.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-100 dark:border-gray-700"
+                  >
+                    <div className="text-sm font-medium line-clamp-1">{repo.repository.name}</div>
+                    <div className="text-xs text-gray-500 mt-1 flex items-center">
+                      <span className="flex-1">
+                        {repo.contributions.totalCount} commits
+                      </span>
+                      <span className="text-gray-400">
+                        {repo.contributions.nodes[0]?.occurredAt && 
+                          new Date(repo.contributions.nodes[0].occurredAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </a>
+                ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
