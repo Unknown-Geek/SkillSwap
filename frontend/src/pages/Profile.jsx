@@ -21,12 +21,14 @@ const Profile = () => {
   });
 
   useEffect(() => {
-    axios.get("http://localhost:5000/api/users")
+    axios.get("http://localhost:5000/api/users/me", {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      }
+    })
       .then(response => {
-        if (response.data.length > 0) {
-          setProfile(response.data[0]); // Temporarily showing first user
-          setFormData(response.data[0]);
-        }
+        setProfile(response.data);
+        setFormData(response.data);
         setLoading(false);
       })
       .catch(error => {
@@ -38,7 +40,11 @@ const Profile = () => {
 
   const handleSave = async () => {
     try {
-      await axios.put(`http://localhost:5000/api/users/${profile.id}`, formData);
+      await axios.put(`http://localhost:5000/api/users/${profile._id}`, formData, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       setProfile(formData);
       setIsEditing(false);
     } catch (error) {

@@ -17,6 +17,7 @@ try:
     db = client.skill_swap
     users_collection = db.users
     skills_collection = db.skills
+    messages_collection = db.messages  # Add this line
     
     print("Successfully connected to MongoDB!")
     
