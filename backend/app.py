@@ -11,7 +11,8 @@ from datetime import timedelta
 # Load environment variables
 load_dotenv()
 
-app = Flask(__name__)
+from app import create_app
+app = create_app()
 
 # Configuration
 app.config.update(
