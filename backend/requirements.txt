@@ -1,13 +1,14 @@
-flask==2.3.3
+Flask==2.3.3
+Flask-Cors==4.0.0
+Flask-JWT-Extended==4.5.2
+python-dotenv==1.0.0
+gunicorn==21.2.0
+# Add any other dependencies your project uses
 pymongo==4.5.0
-flask-cors==4.0.0
 certifi==2023.11.17
 dnspython==2.4.2
 flask-sqlalchemy==3.1.1
-python-dotenv==1.0.0
-flask-jwt-extended==4.5.2
 requests==2.31.0
 python-jose==3.3.0
 passlib==1.7.4
 authlib==1.2.1
-gunicorn==21.2.0
